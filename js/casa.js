@@ -3,6 +3,7 @@ const paginas = {
 
     // ==== Violão Popular ====
     "m": "../aulas/aula_modelo.html",
+    "m1": "../aulas/instr_modelo/aula_modelo.html",
     "1": "../aulas/aula1.html",
     "2": "../aulas/aula2.html"
 
