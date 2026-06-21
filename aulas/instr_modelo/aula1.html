@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aula 1</title>
+<link rel="stylesheet" href="../css/style-aula.css">
+    <!-- Importação do ABCJS Oficial (Partitura + Áudio) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/abcjs@6.4.1/abcjs-audio.css">
+    <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.1/dist/abcjs-basic-min.js"></script>
+
+</head>
+<body>
+
+<body>
+
+<div class="caixa">
+
+    <h1>Aula Modelo</h1>
+
+    <h2>Atividade</h2>
+    <p>Corpo da atividade aqui...</p> 
+    
+    <hr>
+    
+    <h2>Sugestão de Músicas</h2>
+    <p>Clique na música abaixo para abrir a partitura e o áudio correspondente:</p>
+    
+    <div class="lista-musicas">
+        <button class="btn-musica" onclick="carregarMusica('caiCai', this)">🎵 Cai Cai Balão</button>
+        <button class="btn-musica" onclick="carregarMusica('aCasa', this)">🎵 A Casa</button>
+        <button class="btn-musica" onclick="carregarMusica('borboletinha', this)">🎵 Borboletinha</button>
+    </div>
+
+    <div id="painel-estudo" class="painel-controles">
+        <div class="controle-grupo">
+            <label>Transpose:</label>
+            <div class="botoes-transpose">
+                <button class="btn-seta" onclick="mudarTonalidade(-1)">⬇️ </button>
+                <span id="txt-tom" class="txt-tom-atual">Original</span>
+                <button class="btn-seta" onclick="mudarTonalidade(1)">⬆️ </button>
+            </div>
+        </div>
+
+        <div class="controle-grupo">
+            <label for="input-andamento">Andamento:</label>
+            <div class="input-grupo-velocidade">
+                <input type="number" id="input-andamento" class="input-bpm" min="30" max="280" value="100" onchange="atualizarMusicaModificada()">
+                <span style="font-weight: bold; color: #555;">BPM</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="area-partitura" class="container-partitura">
+        <h3 id="nome-da-musica" class="titulo-musica-atual">Nome da Música</h3>
+        <div id="player-audio" class="audio-div"></div>
+        <div id="desenho-partitura" class="paper-div"></div>
+    </div>
+    
+    <hr>
+
+    <button class="btn-voltar" onclick="history.back()">Voltar - "Código de Acesso"</button>
+
+</div>
+
+<script>
+// Armazenamos a estrutura limpa do ABC. O BPM (Q:) será injetado dinamicamente via código.
+const musicas = {
+    caiCai: {
+        titulo: "Cai Cai Balão",
+        bpmPadrao: 120,
+        abcBase: `X:1\nT:Cai Cai Balão\nM:2/4\nL:1/4\nK:C\nG G | E2 | G G | E2 | G A | G F | E D | C2 |]`
+    },
+    aCasa: {
+        titulo: "A Casa",
+        bpmPadrao: 100,
+        abcBase: `X:2\nT:A Casa\nM:4/4\nL:1/4\nK:C\nE E G G | A A G2 | F F E E | D D C2 |]`
+    },
+    borboletinha: {
+        titulo: "Borboletinha",
+        bpmPadrao: 110,
+        abcBase: `X:3\nT:Borboletinha\nM:2/4\nL:1/8\nK:C\nGG EE | GG E2 | AA GF | ED C2 |]`
+    }
+};
+</script>
+
+<script src="../js/aula.js"></script>
+
+</body>
+</html>
