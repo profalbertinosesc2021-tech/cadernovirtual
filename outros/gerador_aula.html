@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Aula</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #003366;
+            margin-top: 0;
+            border-bottom: 2px solid #003366;
+            padding-bottom: 10px;
+        }
+        .campo-grupo {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        label {
+            font-weight: bold;
+            color: #003366;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #b3d7ff;
+            border-radius: 8px;
+            font-size: 15px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        textarea {
+            resize: vertical;
+        }
+        .code-input {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #fafafa;
+        }
+        .btn-importar {
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            align-self: flex-start;
+        }
+        .btn-importar:hover {
+            background-color: #004085;
+        }
+        .btn-gerar {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .btn-gerar:hover {
+            background-color: #218838;
+        }
+        .resultado-caixa {
+            margin-top: 30px;
+            display: none;
+        }
+        .topo-resultado {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .botoes-acoes {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-copiar {
+            background-color: #003366;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-copiar:hover {
+            background-color: #002244;
+        }
+        .btn-baixar {
+            background-color: #e94560;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-baixar:hover {
+            background-color: #bd324a;
+        }
+        #input-arquivo-html {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🛠️ Gerador de Aulas</h1>
+    
+    <div class="campo-grupo">
+        <label for="titulo-aula">🏷️ Título da Aula:</label>
+        <input type="text" id="titulo-aula" value="Aula 1">
+    </div>
+
+    <div class="campo-grupo">
+        <label for="texto-atividade">1 - HTML da Atividade:</label>
+        
+        <button class="btn-importar" onclick="document.getElementById('input-arquivo-html').click()">📂 Importar de Arquivo HTML</button>
+        <input type="file" id="input-arquivo-html" accept=".html,.htm" onchange="importarAulaCard(this)">
+        
+        <textarea id="texto-atividade" rows="6" placeholder="Cole aqui seu bloco <div class='aula-card'>... ou use o botão de importar acima."></textarea>
+    </div>
+
+    <div class="campo-grupo">
+        <label for="musicas-abc">2 - Sugestão de Músicas:</label>
+        <textarea id="musicas-abc" class="code-input" rows="12" placeholder="X:1&#10;T:Música Exemplo&#10;K:C&#10;..."></textarea>
+    </div>
+
+    <button class="btn-gerar" onclick="gerarCodigoHTML()">⚡ Gerar Código</button>
+
+    <div id="caixa-resultado" class="resultado-caixa">
+        <div class="topo-resultado">
+            <h2>📋 Código HTML Gerado:</h2>
+            <div class="botoes-acoes">
+                <button class="btn-copiar" onclick="copyToClipboard()">💾 Copiar Código</button>
+                <button class="btn-baixar" onclick="baixarCodigoHTML()">📥 Baixar Arquivo HTML</button>
+            </div>
+        </div>
+        <textarea id="codigo-saida" class="code-input" rows="15" readonly></textarea>
+    </div>
+</div>
+
+<script>
+function importarAulaCard(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const conteudoTxt = e.target.result;
+        
+        const parser = new DOMParser();
+        const docSimulado = parser.parseFromString(conteudoTxt, 'text/html');
+        
+        const aulaCard = docSimulado.querySelector('.aula-card');
+        
+        if (aulaCard) {
+            const elementosVoltar = aulaCard.querySelectorAll('.no-print, [onclick*="window.scrollTo"]');
+            elementosVoltar.forEach(el => el.remove());
+
+            document.getElementById('texto-atividade').value = aulaCard.innerHTML.trim();
+        } else {
+            alert("Aviso: Não foi encontrada nenhuma <div class='aula-card'> dentro do arquivo selecionado.");
+        }
+        
+        input.value = '';
+    };
+    
+    reader.readAsText(file);
+}
+
+function utoa(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+}
+
+function extrairChaveSegura(titulo) {
+    return titulo
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") 
+        .replace(/[^a-zA-Z0-9]/g, "")    
+        .replace(/^[0-9]+/, "");         
+}
+
+function gerarCodigoHTML() {
+    const titulo = document.getElementById('titulo-aula').value.trim() || "Aula 1";
+    let atividadeRaw = document.getElementById('texto-atividade').value.trim();
+    const abcBruto = document.getElementById('musicas-abc').value.trim();
+
+    if (atividadeRaw.includes("window.scrollTo")) {
+        const parserRemoto = new DOMParser();
+        const docRemoto = parserRemoto.parseFromString("<div>" + atividadeRaw + "</div>", "text/html");
+        const lixos = docRemoto.querySelectorAll('.no-print, [onclick*="window.scrollTo"]');
+        lixos.forEach(el => el.remove());
+        atividadeRaw = docRemoto.querySelector('div').innerHTML.trim();
+        document.getElementById('texto-atividade').value = atividadeRaw;
+    }
+
+    let temMusicas = abcBruto.length > 0;
+    let listaChaves = [];
+    let musicasDados = {};
+
+    if (temMusicas) {
+        const linhas = abcBruto.split('\n');
+        let blocoAtual = [];
+        let chaveAtual = "";
+        let tituloAtual = "Sem Título";
+        let bpmAtual = 100;
+
+        linhas.forEach((linha) => {
+            let linhaLimpa = linha.trim();
+            if (linhaLimpa.toUpperCase().startsWith("X:")) {
+                if (blocoAtual.length > 0 && chaveAtual) {
+                    musicasDados[chaveAtual] = { titulo: tituloAtual, bpmPadrao: bpmAtual, abcBase: blocoAtual.join('\n') };
+                }
+                blocoAtual = [linhaLimpa];
+                tituloAtual = "Sem Título";
+                bpmAtual = 100;
+                chaveAtual = ""; 
+            } else {
+                if (linhaLimpa.toUpperCase().startsWith("T:")) {
+                    tituloAtual = linhaLimpa.split(':')[1].trim();
+                    chaveAtual = extrairChaveSegura(tituloAtual) || "musica_" + Date.now();
+                    listaChaves.push({ chave: chaveAtual, titulo: tituloAtual });
+                }
+                if (linhaLimpa.toUpperCase().startsWith("Q:")) {
+                    let matchBpm = linhaLimpa.match(/Q:\s*(\d+)/i) || linhaLimpa.match(/Q:\s*\d*\/\d*\s*=\s*(\\d+)/i);
+                    if (matchBpm) bpmAtual = parseInt(matchBpm[1], 10);
+                }
+                if (linhaLimpa !== "") {
+                    blocoAtual.push(linhaLimpa);
+                }
+            }
+        });
+        
+        if (blocoAtual.length > 0 && chaveAtual) {
+            musicasDados[chaveAtual] = { titulo: tituloAtual, bpmPadrao: bpmAtual, abcBase: blocoAtual.join('\n') };
+        }
+    }
+
+    let outputHTML = [];
+    
+    outputHTML.push("<!DOCTYPE html>\n<html lang=\"pt-br\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>" + titulo + "</title>\n    <link rel=\"stylesheet\" href=\"style-aula.css\">\n");
+    
+    if (temMusicas) {
+        outputHTML.push("    <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/abcjs@6.4.1/abcjs-audio.css\">\n    <script src=\"https://cdn.jsdelivr.net/npm/abcjs@6.4.1/dist/abcjs-basic-min.js\"><\/script>\n");
+    }
+    
+    outputHTML.push("</head>\n<body>\n\n");
+    outputHTML.push("<div class=\"caixa\">\n\n    <h1>" + titulo + "</h1>\n\n    <h2>Atividade</h2>\n    <div id=\"bloco-atividade-html\"></div>\n\n");
+
+    if (temMusicas) {
+        let botoesHTML = "";
+        listaChaves.forEach((item) => {
+            botoesHTML += "        <button class=\"btn-musica\" onclick=\"carregarMusica('" + item.chave + "', this)\">🎵 " + item.titulo + "</button>\n";
+        });
+
+        outputHTML.push("    <hr>\n\n    <h2>Sugestão de Músicas</h2>\n    <p>Clique na música abaixo para abrir a partitura e o áudio correspondente:</p>\n\n    <div class=\"lista-musicas\">\n" + botoesHTML + "    </div>\n\n");
+        outputHTML.push("    <div id=\"painel-estudo\" class=\"painel-controles\">\n        <div class=\"controle-grupo\">\n            <label>Transpose:</label>\n            <div class=\"botoes-transpose\">\n                <button class=\"btn-seta\" onclick=\"mudarTonalidade(-1)\">⬇️ </button>\n                <span id=\"txt-tom\" class=\"txt-tom-atual\">Original</span>\n                <button class=\"btn-seta\" onclick=\"mudarTonalidade(1)\">⬆️ </button>\n            </div>\n        </div>\n\n        <div class=\"controle-grupo\">\n            <label for=\"input-andamento\">Andamento:</label>\n            <div class=\"input-grupo-velocidade\">\n                <input type=\"number\" id=\"input-andamento\" class=\"input-bpm\" min=\"30\" max=\"280\" value=\"100\" onchange=\"atualizarMusicaModificada()\">\n                <span style=\"font-weight: bold; color: #555;\">BPM</span>\n            </div>\n        </div>\n    </div>\n\n");
+        outputHTML.push("    <div id=\"area-partitura\" class=\"container-partitura\">\n        <h3 id=\"nome-da-musica\" class=\"titulo-musica-atual\">Nome da Música</h3>\n        <div id=\"player-audio\" class=\"audio-div\"></div>\n        <div id=\"desenho-partitura\" class=\"paper-div\"></div>\n    </div>\n\n");
+    }
+
+    outputHTML.push("    <hr>\n\n    <button class=\"btn-voltar\" onclick=\"history.back()\">Voltar - \"Código de Acesso\"</button>\n\n</div>\n\n");
+    
+    outputHTML.push("<script>\nfunction atou(str) { return decodeURIComponent(escape(atob(str))); }\n");
+    outputHTML.push("const atividadeCodificada = \"" + utoa(atividadeRaw) + "\";\n");
+    outputHTML.push("document.getElementById('bloco-atividade-html').innerHTML = atou(atividadeCodificada);\n\n");
+
+    if (temMusicas) {
+        let objectJSString = "const musicas = {\n";
+        let chavesArray = Object.keys(musicasDados);
+        chavesArray.forEach((ch, idx) => {
+            let m = musicasDados[ch];
+            let abcEscapado = m.abcBase.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/"/g, '\\"');
+            
+            objectJSString += "    " + ch + ": {\n";
+            objectJSString += "        titulo: \"" + m.titulo + "\",\n";
+            objectJSString += "        bpmPadrao: " + m.bpmPadrao + ",\n";
+            objectJSString += "        abcBase: `" + abcEscapado + "`\n";
+            objectJSString += "    }";
+            if (idx < chavesArray.length - 1) objectJSString += ",\n";
+        });
+        objectJSString += "\n};";
+        outputHTML.push(objectJSString + "\n");
+    } else {
+        outputHTML.push("const musicas = {};\n");
+    }
+
+    outputHTML.push("<\/script>\n\n");
+    outputHTML.push("<script src=\"aula.js\"><\/script>\n\n</body>\n</html>");
+
+    document.getElementById('codigo-saida').value = outputHTML.join("");
+    document.getElementById('caixa-resultado').style.display = "block";
+    document.getElementById('caixa-resultado').scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyToClipboard() {
+    const caixaTexto = document.getElementById('codigo-saida');
+    caixaTexto.select();
+    document.execCommand('copy');
+}
+
+function baixarCodigoHTML() {
+    const codigo = document.getElementById('codigo-saida').value;
+    let tituloAula = document.getElementById('titulo-aula').value.trim() || "aula";
+    
+    const nomeArquivo = tituloAula.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "-") + ".html";
+
+    const blob = new Blob([codigo], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    
+    const linkTemporario = document.createElement("a");
+    linkTemporario.href = url;
+    linkTemporario.download = nomeArquivo;
+    
+    document.body.appendChild(linkTemporario);
+    linkTemporario.click();
+    
+    document.body.removeChild(linkTemporario);
+    URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
