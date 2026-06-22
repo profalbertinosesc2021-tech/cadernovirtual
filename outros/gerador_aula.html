@@ -262,7 +262,7 @@ function gerarCodigoHTML() {
 
     let outputHTML = [];
     
-    outputHTML.push("<!DOCTYPE html>\n<html lang=\"pt-br\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>" + titulo + "</title>\n    <link rel=\"stylesheet\" href=\"../css/style-aula.css\">\n");
+    outputHTML.push("<!DOCTYPE html>\n<html lang=\"pt-br\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>" + titulo + "</title>\n    <link rel=\"stylesheet\" href=\"/cadernovirtual/css/style-aula.css\">\n");
     
     if (temMusicas) {
         outputHTML.push("    <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/abcjs@6.4.1/abcjs-audio.css\">\n    <script src=\"https://cdn.jsdelivr.net/npm/abcjs@6.4.1/dist/abcjs-basic-min.js\"><\/script>\n");
@@ -309,7 +309,7 @@ function gerarCodigoHTML() {
     }
 
     outputHTML.push("<\/script>\n\n");
-    outputHTML.push("<script src=\"../js/aula.js\"><\/script>\n\n</body>\n</html>");
+    outputHTML.push("<script src=\"/cadernovirtual/js/aula.js\"><\/script>\n\n</body>\n</html>");
 
     document.getElementById('codigo-saida').value = outputHTML.join("");
     document.getElementById('caixa-resultado').style.display = "block";
