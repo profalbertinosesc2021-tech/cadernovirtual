@@ -52,7 +52,7 @@
         .filter-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 
         .lista-planos { max-height: 850px; overflow-y: auto; padding-right: 5px; }
-        .plano-item { padding: 20px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; background-color: #fafafa; }
+        .plano-item { padding: 20px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; background-color: #fafafa; border-left: 4px solid var(--primary); }
         .plano-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 8px; }
         .plano-title { font-weight: bold; font-size: 1.2rem; color: var(--primary); }
         .plano-meta { font-size: 0.85rem; color: var(--text-light); }
@@ -64,6 +64,7 @@
         .export-panel { background: #f1f5f9; padding: 12px; border-radius: 8px; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
         .export-label { width: 100%; font-size: 0.8rem; text-transform: uppercase; color: var(--text-light); font-weight: 700; }
         .btn-export { background-color: #64748b; color: white; font-size: 0.8rem; padding: 6px 12px; flex-grow: 1; }
+        .btn-export:hover { background-color: #475569; }
 
         .item-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border); }
         .no-results { text-align: center; color: var(--text-light); padding: 40px 20px; }
@@ -74,13 +75,13 @@
 
     <header>
         <h1>Gerenciador Nuvem de Planos de Aula</h1>
-        <p>Sincronização Direta com Google Drive via Apps Script • Grupo 3 (G3)</p>
+        <p>Ambiente Integrado com Google Drive via API Apps Script • Grupo 3 (G3)</p>
     </header>
 
     <div class="container">
         <div class="card">
             <h2 id="form-title">Criar Plano de Aula</h2>
-            <div id="loadingForm" class="loading-notice">Enviando dados para o Google Drive...</div>
+            <div id="loadingForm" class="loading-notice">Enviando e sincronizando dados no Google Drive...</div>
             <form id="planoForm">
                 <input type="hidden" id="planoId">
                 
@@ -137,12 +138,12 @@
 
                 <div class="form-group">
                     <label for="momento">Momento / Desenvolvimento Pedagógico</label>
-                    <textarea id="momento" style="min-height: 140px;" placeholder="Passo a passo da aula..."></textarea>
+                    <textarea id="momento" style="min-height: 140px;" placeholder="Passo a passo da atividade..."></textarea>
                 </div>
 
                 <div class="form-group">
                     <label for="expectativas">Expectativas de Aprendizagem</label>
-                    <textarea id="expectativas" placeholder="O que se espera que desenvolvam..."></textarea>
+                    <textarea id="expectativas" placeholder="O que se espera fixar..."></textarea>
                 </div>
 
                 <div class="form-group">
@@ -159,18 +160,18 @@
             <div id="loadingList" class="loading-notice" style="display: block;">Carregando planos salvos no Google Drive...</div>
             
             <div class="filter-panel">
-                <h3>🔍 Filtros de Busca</h3>
+                <h3>🔍 Filtrar Planos da Nuvem</h3>
                 <div class="filter-grid">
                     <div>
-                        <label for="filtroTurma">Turma</label>
+                        <label for="filtroTurma" style="font-size: 0.8rem; color: var(--text-light);">Turma</label>
                         <input type="text" id="filtroTurma" placeholder="Filtrar..." oninput="renderizarLista()">
                     </div>
                     <div>
-                        <label for="filtroData">Data</label>
+                        <label for="filtroData" style="font-size: 0.8rem; color: var(--text-light);">Data</label>
                         <input type="text" id="filtroData" placeholder="Filtrar..." oninput="renderizarLista()">
                     </div>
                     <div>
-                        <label for="filtroTema">Tema</label>
+                        <label for="filtroTema" style="font-size: 0.8rem; color: var(--text-light);">Tema</label>
                         <input type="text" id="filtroTema" placeholder="Filtrar..." oninput="renderizarLista()">
                     </div>
                 </div>
@@ -183,26 +184,31 @@
     <div id="print-preview"></div>
 
     <script>
-        // URL DA SUA API DO GOOGLE APPS SCRIPT
-        const API_URL = "https://script.google.com/macros/s/AKfycbzaoUIz550HwUR05AxrCZKw3WJ6a559nlsJNW9ScLeRW0WiCFNao5yGzrUEMohr1-k/exec";
+        // ==========================================
+        // CONFIGURAÇÃO: INSIRA SUA URL DO APPS SCRIPT ABAIXO
+        // ==========================================
+        const API_URL = "https://script.google.com/macros/s/AKfycbxiny4t5fy83ns-d_Q4gPwpyuS6DoIFIgGUcFff1nm9PyAd8Rb2UBFiiX6YX6hmWyg/exec";
 
         let planos = [];
 
-        // Carrega os dados vindos da nuvem ao iniciar a página
+        // Faz o rastreio e carregamento dos arquivos JSON na pasta do Drive
         async function buscarPlanosDaNuvem() {
             document.getElementById('loadingList').style.display = 'block';
             try {
                 const response = await fetch(API_URL);
+                if (!response.ok) throw new Error("Erro de resposta");
+                
                 planos = await response.json();
                 renderizarLista();
             } catch (error) {
-                alert("Erro ao conectar com o Google Drive. Verifique se configurou a URL do Apps Script corretamente.");
+                console.error(error);
+                alert("Erro ao conectar com o Google Drive. Verifique se a URL do Apps Script foi atualizada e implantada corretamente.");
             } finally {
                 document.getElementById('loadingList').style.display = 'none';
             }
         }
 
-        // Envia novo plano ou atualização para a nuvem
+        // Submissão do Formulário (Salvar Novo ou Modificar Existente)
         document.getElementById('planoForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             document.getElementById('loadingForm').style.display = 'block';
@@ -225,17 +231,16 @@
             };
 
             try {
+                // Enviado como 'text/plain' para passar pelo CORS do GitHub Pages de forma limpa
                 await fetch(API_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // Permite o envio silencioso entre domínios locais e Google
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain' }, 
                     body: JSON.stringify({ action: "salvar", plano: planoObjeto })
                 });
 
-                // Como 'no-cors' não traz resposta legível, assumimos sucesso se não disparar erro
-                alert("Plano enviado/atualizado com sucesso no seu Google Drive!");
+                alert("Operação realizada! O arquivo JSON foi sincronizado na sua pasta do Google Drive.");
                 
-                // Reseta formulário
+                // Resetando o formulário para as configurações base
                 document.getElementById('planoForm').reset();
                 document.getElementById('planoId').value = '';
                 document.getElementById('grupo').value = 'G3';
@@ -244,15 +249,17 @@
                 document.getElementById('form-title').innerText = "Criar Plano de Aula";
                 document.getElementById('btnSalvar').innerText = "Salvar no Google Drive";
 
-                // Força atualização da lista buscando os novos dados do Drive
+                // Atualiza a visualização do painel lateral buscando as novas informações
                 setTimeout(buscarPlanosDaNuvem, 1500);
             } catch (err) {
-                alert("Erro ao salvar dados.");
+                console.error(err);
+                alert("Falha de conexão ao enviar o arquivo para a nuvem.");
             } finally {
                 document.getElementById('loadingForm').style.display = 'none';
             }
         });
 
+        // Renderiza a lista aplicando os 3 filtros combinados (Turma, Data, Tema)
         function renderizarLista() {
             const lista = document.getElementById('listaPlanos');
             const buscaTurma = document.getElementById('filtroTurma').value.toLowerCase();
@@ -267,7 +274,7 @@
             });
 
             if (filtrados.length === 0) {
-                lista.innerHTML = '<div class="no-results">Nenhum plano encontrado no Drive.</div>';
+                lista.innerHTML = '<div class="no-results">Nenhum plano corresponde aos filtros aplicados ou banco vazio.</div>';
                 return;
             }
 
@@ -280,19 +287,19 @@
                         <div class="plano-meta"><strong>Data:</strong> ${p.data}</div>
                     </div>
                     <div class="plano-meta" style="margin-bottom:12px;">
-                        <strong>Turma:</strong> ${p.grupo} | <strong>Trimestre:</strong> ${p.trimestre}
+                        <strong>Turma/Grupo:</strong> ${p.grupo} | <strong>Trimestre:</strong> ${p.trimestre}
                     </div>
-                    <div class="plano-section"><strong>Conteúdos:</strong> <p>${p.conteudos}</p></div>
+                    <div class="plano-section"><strong>Conteúdos / Eixos:</strong> <p>${p.conteudos}</p></div>
                     <div class="plano-section"><strong>Habilidades BNCC:</strong> <p>${p.habilidades || ''}</p></div>
-                    <div class="plano-section"><strong>Desenvolvimento:</strong> <p>${p.momento}</p></div>
+                    <div class="plano-section"><strong>Desenvolvimento Pedagógico:</strong> <p>${p.momento}</p></div>
                     
                     <div class="export-panel">
-                        <div class="export-label">Exportar arquivo:</div>
-                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'html')">HTML</button>
-                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'txt')">TXT</button>
-                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'json')">JSON</button>
-                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'doc')">WORD</button>
-                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'pdf')">PDF</button>
+                        <div class="export-label">Exportar Cópia Local:</div>
+                        <button class="btn btn-export" onclick="exportarLocal(${p.id}, 'html')">HTML</button>
+                        <button class="btn btn-export" onclick="exportarLocal(${p.id}, 'txt')">TXT</button>
+                        <button class="btn btn-export" onclick="exportarLocal(${p.id}, 'json')">JSON</button>
+                        <button class="btn btn-export" onclick="exportarLocal(${p.id}, 'doc')">WORD</button>
+                        <button class="btn btn-export" onclick="exportarLocal(${p.id}, 'pdf')">PDF</button>
                     </div>
                     <div class="item-actions">
                         <button class="btn btn-danger" onclick="deletarPlano(${p.id})">Excluir do Drive</button>
@@ -303,6 +310,7 @@
             });
         }
 
+        // Recupera as informações da nuvem e preenche os campos para alteração
         function carregarEdicao(id) {
             const p = planos.find(item => item.id === id);
             if (!p) return;
@@ -322,33 +330,53 @@
             document.getElementById('recursos').value = p.recursos;
 
             document.getElementById('form-title').innerText = "Editando: " + p.tema;
-            document.getElementById('btnSalvar').innerText = "Atualizar no Google Drive";
+            document.getElementById('btnSalvar').innerText = "Atualizar e Mudar no Drive";
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
 
+        // Remove permanentemente o arquivo da pasta da nuvem
         async function deletarPlano(id) {
-            if (confirm('Deseja deletar definitivamente este plano do seu Google Drive?')) {
+            if (confirm('Deseja mover permanentemente este arquivo para a lixeira do seu Google Drive?')) {
                 document.getElementById('loadingList').style.display = 'block';
                 try {
                     await fetch(API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({ action: "deletar", id: id })
                     });
                     setTimeout(buscarPlanosDaNuvem, 1200);
                 } catch (err) {
-                    alert("Erro ao deletar.");
+                    alert("Erro ao executar a exclusão na nuvem.");
                 }
             }
         }
 
-        // Funções de formatação para Downloads Locais (Mantidas para conveniência)
+        // Estrutura de visualização para exportações limpas
         function gerarDocumentoEstruturado(p) {
-            return `<div style="font-family: Arial; padding: 30px; line-height: 1.6;"><h1 style="color: #4f46e5;">PLANO DE AULA: ${p.tema}</h1><p><strong>Grupo:</strong> ${p.grupo} | <strong>Data:</strong> ${p.data}</p><hr><p><strong>Desenvolvimento:</strong><br>${p.momento.replace(/\n/g, '<br>')}</p></div>`;
+            return `
+                <div style="font-family: Arial, sans-serif; padding: 30px; color: #333; line-height: 1.6; max-width: 800px; margin: auto;">
+                    <h1 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 5px; margin-bottom: 20px;">PLANO DE AULA: ${p.tema}</h1>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;"><strong>Grupo/Turma:</strong> ${p.grupo}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;"><strong>Trimestre:</strong> ${p.trimestre}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;"><strong>Data/Período:</strong> ${p.data}</td>
+                        </tr>
+                    </table>
+                    <p><strong>CAMPOS DE EXPERIÊNCIA:</strong> ${p.campos}</p>
+                    <hr style="border:0; border-top: 1px dashed #ddd; margin:15px 0;">
+                    <p><strong>DIREITOS DE APRENDIZAGEM:</strong><br>${p.direitos.replace(/\n/g, '<br>')}</p>
+                    <p><strong>CONTEÚDOS:</strong><br>${p.conteudos.replace(/\n/g, '<br>')}</p>
+                    <p><strong>OBJETIVOS:</strong><br>${p.objetivos.replace(/\n/g, '<br>')}</p>
+                    <p><strong>HABILIDADES BNCC:</strong><br>${p.habilidades.replace(/\n/g, '<br>')}</p>
+                    <p><strong>DESENVOLVIMENTO PEDAGÓGICO:</strong><br>${p.momento.replace(/\n/g, '<br>')}</p>
+                    <p><strong>EXPECTATIVAS DE APRENDIZAGEM:</strong><br>${p.expectativas.replace(/\n/g, '<br>')}</p>
+                    <p><strong>RECURSOS:</strong><br>${p.recursos.replace(/\n/g, '<br>')}</p>
+                </div>`;
         }
 
-        function exportarUnico(id, formato) {
+        // Geração de downloads locais sob demanda
+        function exportarLocal(id, formato) {
             const p = planos.find(item => item.id === id);
             if (!p) return;
             const nomeArquivo = `Plano_${p.tema.replace(/[^a-zA-Z0-9]/g, '_')}`;
@@ -356,23 +384,23 @@
             if (formato === 'json') {
                 acionarDownload(new Blob([JSON.stringify(p, null, 2)], {type: 'application/json'}), `${nomeArquivo}.json`);
             } else if (formato === 'txt') {
-                acionarDownload(new Blob([`PLANO: ${p.tema}\n\nDesenvolvimento:\n${p.momento}`], {type: 'text/plain'}), `${nomeArquivo}.txt`);
+                acionarDownload(new Blob([`PLANO: ${p.tema}\nTurma: ${p.grupo}\nData: ${p.data}\n\nDesenvolvimento:\n${p.momento}`], {type: 'text/plain'}), `${nomeArquivo}.txt`);
             } else if (formato === 'html') {
-                acionarDownload(new Blob([gerarDocumentoEstruturado(p)], {type: 'text/html'}), `${nomeArquivo}.html`);
+                acionarDownload(new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${gerarDocumentoEstruturado(p)}</body></html>`], {type: 'text/html'}), `${nomeArquivo}.html`);
             } else if (formato === 'doc') {
-                acionarDownload(new Blob([gerarDocumentoEstruturado(p)], {type: 'application/msword'}), `${nomeArquivo}.doc`);
+                acionarDownload(new Blob([`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body>${gerarDocumentoEstruturado(p)}</body></html>`], {type: 'application/msword'}), `${nomeArquivo}.doc`);
             } else if (formato === 'pdf') {
                 const preview = document.getElementById('print-preview');
                 preview.style.display = 'block'; preview.innerHTML = gerarDocumentoEstruturado(p);
-                html2pdf().set({ margin: 15, filename: `${nomeArquivo}.pdf` }).from(preview).save().then(() => { preview.style.display = 'none'; });
+                html2pdf().set({ margin: 15, filename: `${nomeArquivo}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { format: 'a4', orientation: 'portrait' } }).from(preview).save().then(() => { preview.style.display = 'none'; });
             }
         }
 
         function acionarDownload(blob, nome) {
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; a.click();
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; a.click(); URL.revokeObjectURL(a.href);
         }
 
-        // Inicialização automática
+        // Executado de forma automática assim que carregar o script da página
         buscarPlanosDaNuvem();
     </script>
 </body>
