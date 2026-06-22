@@ -6,7 +6,7 @@
     <title>Planos de Aula - Google Drive (Apps Script)</title>
     <style>
         /* ============================================================ */
-        /* RESET E VARIÁVEIS - MESMO ESTILO ANTERIOR */
+        /* RESET E VARIÁVEIS */
         /* ============================================================ */
         * {
             margin: 0;
@@ -149,7 +149,7 @@
         }
 
         /* ============================================================ */
-        /* BOTÕES - MESMO ESTILO ANTERIOR */
+        /* BOTÕES */
         /* ============================================================ */
         .btn {
             padding: 8px 16px;
@@ -303,7 +303,7 @@
         }
 
         /* ============================================================ */
-        /* CARDS E LISTA - MESMO ESTILO ANTERIOR */
+        /* CARDS E LISTA */
         /* ============================================================ */
         .main-layout {
             display: grid;
@@ -1102,6 +1102,7 @@
         const TURMAS = ['G3', 'G4', 'G5', '1A', '2A', '3A', '4A', '5A'];
         const TRIMESTRES = ['I', 'II', 'III'];
         const CAMPOS_EXPERIENCIA = [
+            'NENHUM',
             'TRAÇOS, SONS, CORES E FORMAS',
             'O EU, O OUTRO E O NÓS',
             'CORPO, GESTOS E MOVIMENTOS',
@@ -1122,20 +1123,19 @@
         let editingId = null;
         let deleteTargetId = null;
         let driveConnected = false;
+        let driveFileMap = {};
 
         // ================================================================
         // INICIALIZAÇÃO
         // ================================================================
         document.addEventListener('DOMContentLoaded', function() {
-            // Verificar se há dados salvos localmente
             loadLocalPlans();
 
-            // Tentar conectar ao Drive
             const driveConnectedStorage = localStorage.getItem('drive_connected');
             if (driveConnectedStorage === 'true') {
                 driveConnected = true;
                 updateDriveStatus();
-                syncFromDrive();
+                // Não carregar automaticamente para evitar timeout
             }
         });
 
@@ -1152,7 +1152,7 @@
         }
 
         // ================================================================
-        // COMUNICAÇÃO COM APPS SCRIPT
+        // COMUNICAÇÃO COM APPS SCRIPT - VERSÃO SIMPLIFICADA
         // ================================================================
         async function callAppsScript(action, data = {}) {
             try {
@@ -1161,39 +1161,38 @@
                     ...data
                 };
 
+                // Usar fetch com modo normal (não no-cors)
                 const response = await fetch(APP_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(payload)
                 });
 
-                // Como estamos usando mode: 'no-cors', a resposta pode não ser acessível
-                // O Apps Script vai processar a requisição mesmo assim
-                // Para obter resposta, precisamos usar um método alternativo
+                if (!response.ok) {
+                    throw new Error('Erro na requisição: ' + response.status);
+                }
 
-                // Usando uma abordagem com callback via URL
-                return await callAppsScriptWithCallback(action, data);
+                const result = await response.json();
+                return result;
 
             } catch (error) {
                 console.error('Erro ao chamar Apps Script:', error);
-                throw error;
+                // Se falhar, tentar método alternativo com iframe
+                return await callAppsScriptFallback(action, data);
             }
         }
 
-        // Método alternativo usando JSONP ou redirect
-        async function callAppsScriptWithCallback(action, data = {}) {
+        // Método fallback usando iframe
+        function callAppsScriptFallback(action, data) {
             return new Promise((resolve, reject) => {
                 const callbackName = 'callback_' + Date.now();
 
-                // Criar um iframe invisível
                 const iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
                 document.body.appendChild(iframe);
 
-                // Construir URL com parâmetros
                 const params = new URLSearchParams();
                 params.append('action', action);
                 params.append('data', JSON.stringify(data));
@@ -1201,28 +1200,29 @@
 
                 const url = APP_SCRIPT_URL + '?' + params.toString();
 
-                // Definir o callback global
                 window[callbackName] = function(response) {
                     delete window[callbackName];
-                    document.body.removeChild(iframe);
-                    if (response.success) {
+                    if (document.body.contains(iframe)) {
+                        document.body.removeChild(iframe);
+                    }
+                    if (response && response.success) {
                         resolve(response.data);
                     } else {
-                        reject(new Error(response.error || 'Erro desconhecido'));
+                        reject(new Error(response ? response.error : 'Erro desconhecido'));
                     }
                 };
 
-                // Carregar o iframe
                 iframe.src = url;
 
-                // Timeout
                 setTimeout(() => {
                     if (window[callbackName]) {
                         delete window[callbackName];
-                        document.body.removeChild(iframe);
+                        if (document.body.contains(iframe)) {
+                            document.body.removeChild(iframe);
+                        }
                         reject(new Error('Timeout ao comunicar com o Apps Script'));
                     }
-                }, 30000);
+                }, 15000);
             });
         }
 
@@ -1232,22 +1232,39 @@
         function connectDrive() {
             showLoading('Conectando ao Google Drive...');
 
-            // Abrir a URL do Apps Script para autorização
             const authUrl = APP_SCRIPT_URL + '?action=auth';
-            window.open(authUrl, '_blank', 'width=500,height=600');
+            const authWindow = window.open(authUrl, '_blank', 'width=500,height=600');
 
-            // Simular conexão após autorização
-            setTimeout(() => {
-                driveConnected = true;
-                localStorage.setItem('drive_connected', 'true');
-                updateDriveStatus();
-                hideLoading();
-                showToast('✅ Conectado ao Google Drive!', 'success');
-                document.getElementById('driveStatusMsg').textContent = '✅ Conectado com sucesso!';
+            // Verificar conexão após alguns segundos
+            setTimeout(async () => {
+                try {
+                    // Tentar listar para verificar conexão
+                    const result = await callAppsScript('list');
+                    if (result && Array.isArray(result)) {
+                        driveConnected = true;
+                        localStorage.setItem('drive_connected', 'true');
+                        updateDriveStatus();
+                        hideLoading();
+                        showToast('✅ Conectado ao Google Drive!', 'success');
+                        document.getElementById('driveStatusMsg').textContent = '✅ Conectado com sucesso!';
 
-                // Carregar planos
-                syncFromDrive();
-            }, 3000);
+                        // Carregar planos
+                        plans = result;
+                        saveLocalPlans();
+                        renderPlansList();
+                        updateStats();
+                        if (plans.length > 0) {
+                            viewPlan(plans[0].id);
+                        }
+                    } else {
+                        throw new Error('Falha ao listar planos');
+                    }
+                } catch (error) {
+                    hideLoading();
+                    showToast('Erro ao conectar: ' + error.message, 'error');
+                    document.getElementById('driveStatusMsg').textContent = '❌ Erro: ' + error.message;
+                }
+            }, 5000);
         }
 
         function updateDriveStatus() {
@@ -1287,8 +1304,7 @@
                     saveLocalPlans();
                     renderPlansList();
                     showToast(`✅ ${plans.length} planos carregados do Drive!`, 'success');
-                    document.getElementById('driveStatusMsg').textContent =
-                    `✅ ${plans.length} planos carregados`;
+                    document.getElementById('driveStatusMsg').textContent = `✅ ${plans.length} planos carregados`;
                 } else {
                     showToast('Nenhum plano encontrado no Drive.', 'info');
                     loadLocalPlans();
@@ -1366,11 +1382,9 @@
 
             showLoading('Sincronizando com o Google Drive...');
 
-            // Primeiro salvar os planos locais no Drive
             const savePromise = plans.length > 0 ? saveAllToDrive() : Promise.resolve();
 
             savePromise.then(() => {
-                // Depois carregar do Drive
                 loadPlansFromDrive();
             }).catch(() => {
                 loadPlansFromDrive();
@@ -1419,7 +1433,8 @@
                 habilidades: '(EI02TS01) Criar sons com materiais, objetos e instrumentos musicais.\n(EI02TS03) Utilizar diferentes fontes sonoras.',
                 momento: 'Acolhida: Conhecer a sala de música e os instrumentos.\nExplorar os instrumentos na sala de aula.',
                 expectativas: 'Escuta e relaciona sons da natureza ou da cultura.',
-                recursos: 'Instrumentos musicais diversos: percussão, sopro, cordas.'
+                recursos: 'Instrumentos musicais diversos: percussão, sopro, cordas.',
+                outrasInformacoes: ''
             };
 
             return [
@@ -1469,7 +1484,6 @@
             saveLocalPlans();
             renderPlansList();
 
-            // Salvar no Drive se conectado
             if (driveConnected) {
                 callAppsScript('save', { plan: newPlan }).catch(err => {
                     console.error('Erro ao salvar no Drive:', err);
@@ -1490,7 +1504,6 @@
                 saveLocalPlans();
                 renderPlansList();
 
-                // Atualizar no Drive
                 if (driveConnected) {
                     callAppsScript('save', { plan: plans[index] }).catch(err => {
                         console.error('Erro ao atualizar no Drive:', err);
@@ -1503,7 +1516,6 @@
         }
 
         function deletePlan(id) {
-            // Excluir do Drive
             if (driveConnected) {
                 callAppsScript('delete', { id: id }).catch(err => {
                     console.error('Erro ao excluir do Drive:', err);
@@ -1599,7 +1611,7 @@
         }
 
         // ================================================================
-        // RENDERIZAÇÃO - FORMULÁRIO (mesmo da versão anterior)
+        // RENDERIZAÇÃO - FORMULÁRIO
         // ================================================================
         function renderForm(plan) {
             const container = document.getElementById('formContainer');
@@ -1717,6 +1729,11 @@
                         <textarea id="fRecursos" class="medium" ${!isEditing ? 'disabled' : ''} placeholder="Liste os recursos necessários...">${escapeHtml(plan.recursos || '')}</textarea>
                     </div>
 
+                    <div class="form-group">
+                        <label>Outras Informações</label>
+                        <textarea id="fOutras" class="medium" ${!isEditing ? 'disabled' : ''} placeholder="Observações adicionais, adaptações, etc...">${escapeHtml(plan.outrasInformacoes || '')}</textarea>
+                    </div>
+
                     ${isEditing ? `
                         <div class="form-actions">
                             <button type="submit" class="btn btn-success">💾 Salvar Plano</button>
@@ -1758,13 +1775,14 @@
                 tema: '',
                 professor: '',
                 direitosAprendizagem: '',
-                campoExperiencia: 'TRAÇOS, SONS, CORES E FORMAS',
+                campoExperiencia: 'NENHUM',
                 eixosConteudos: '',
                 objetivos: '',
                 habilidades: '',
                 momento: '',
                 expectativas: '',
                 recursos: '',
+                outrasInformacoes: '',
                 createdAt: '',
                 updatedAt: ''
             };
@@ -1823,7 +1841,8 @@
                 habilidades: document.getElementById('fHabilidades')?.value || '',
                 momento: document.getElementById('fMomento')?.value || '',
                 expectativas: document.getElementById('fExpectativas')?.value || '',
-                recursos: document.getElementById('fRecursos')?.value || ''
+                recursos: document.getElementById('fRecursos')?.value || '',
+                outrasInformacoes: document.getElementById('fOutras')?.value || ''
             };
 
             if (!data.tema) {
@@ -1924,7 +1943,8 @@
                     (p.tema || '').toLowerCase().includes(searchTerm) ||
                     (p.eixosConteudos || '').toLowerCase().includes(searchTerm) ||
                     (p.objetivos || '').toLowerCase().includes(searchTerm) ||
-                    (p.professor || '').toLowerCase().includes(searchTerm)
+                    (p.professor || '').toLowerCase().includes(searchTerm) ||
+                    (p.outrasInformacoes || '').toLowerCase().includes(searchTerm)
                 );
             }
 
@@ -1936,7 +1956,7 @@
         });
 
         // ================================================================
-        // EXPORTAR (mesmo da versão anterior)
+        // EXPORTAR
         // ================================================================
         function toggleExportMenu() {
             const menu = document.getElementById('exportMenu');
@@ -2048,7 +2068,8 @@
                 { label: 'Habilidades / BNCC', value: plan.habilidades || '-' },
                 { label: 'Momento', value: plan.momento || '-' },
                 { label: 'Expectativas de Aprendizagem', value: plan.expectativas || '-' },
-                { label: 'Recursos', value: plan.recursos || '-' }
+                { label: 'Recursos', value: plan.recursos || '-' },
+                { label: 'Outras Informações', value: plan.outrasInformacoes || '-' }
             ];
 
             let rowsHtml = rows.map(row => `
@@ -2102,7 +2123,8 @@
                 { title: 'HABILIDADES / BNCC', value: plan.habilidades },
                 { title: 'MOMENTO', value: plan.momento },
                 { title: 'EXPECTATIVAS DE APRENDIZAGEM', value: plan.expectativas },
-                { title: 'RECURSOS', value: plan.recursos }
+                { title: 'RECURSOS', value: plan.recursos },
+                { title: 'OUTRAS INFORMAÇÕES', value: plan.outrasInformacoes }
             ];
 
             sections.forEach(s => {
@@ -2132,7 +2154,8 @@
                 { label: 'Habilidades / BNCC', value: plan.habilidades || '-' },
                 { label: 'Momento', value: plan.momento || '-' },
                 { label: 'Expectativas de Aprendizagem', value: plan.expectativas || '-' },
-                { label: 'Recursos', value: plan.recursos || '-' }
+                { label: 'Recursos', value: plan.recursos || '-' },
+                { label: 'Outras Informações', value: plan.outrasInformacoes || '-' }
             ];
 
             let rowsHtml = rows.map(row => `
@@ -2203,7 +2226,8 @@
                         ...p,
                         id: generateId(),
                         createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
+                        updatedAt: new Date().toISOString(),
+                        outrasInformacoes: p.outrasInformacoes || ''
                     }));
 
                     plans = [...newPlans, ...plans];
