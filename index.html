@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador Nuvem de Planos de Aula - G3</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --danger: #ef4444;
+            --amber: #d97706;
+            --drive-color: #34a853;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        header { width: 100%; max-width: 1300px; margin-bottom: 20px; text-align: center; }
+        header h1 { color: var(--primary); margin-bottom: 5px; }
+        header p { color: var(--text-light); }
+        
+        .container { width: 100%; max-width: 1300px; display: grid; grid-template-columns: 1.11fr 0.89fr; gap: 24px; }
+        @media (max-width: 1024px) { .container { grid-template-columns: 1fr; } }
+
+        .card { background: var(--card-bg); padding: 25px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); height: fit-content; }
+        .card h2 { margin-bottom: 20px; font-size: 1.4rem; border-bottom: 2px solid var(--border); padding-bottom: 10px; color: var(--primary); }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; color: var(--text); background-color: #fff; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .btn { padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+        .btn-primary { background-color: var(--primary); color: white; width: 100%; padding: 14px; font-size: 1rem; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-edit { background-color: var(--amber); color: white; }
+        
+        .loading-notice { background: #eff6ff; color: #1e40af; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: 600; text-align: center; display: none; }
+
+        .filter-panel { background: #f8fafc; border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .filter-panel h3 { font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px; text-transform: uppercase; }
+        .filter-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+        .lista-planos { max-height: 850px; overflow-y: auto; padding-right: 5px; }
+        .plano-item { padding: 20px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; background-color: #fafafa; }
+        .plano-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 8px; }
+        .plano-title { font-weight: bold; font-size: 1.2rem; color: var(--primary); }
+        .plano-meta { font-size: 0.85rem; color: var(--text-light); }
+        
+        .plano-section { margin-bottom: 12px; font-size: 0.9rem; }
+        .plano-section strong { color: #334155; display: block; margin-bottom: 2px; font-size: 0.85rem; text-transform: uppercase; }
+        .plano-section p { white-space: pre-line; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #f1f5f9; }
+
+        .export-panel { background: #f1f5f9; padding: 12px; border-radius: 8px; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .export-label { width: 100%; font-size: 0.8rem; text-transform: uppercase; color: var(--text-light); font-weight: 700; }
+        .btn-export { background-color: #64748b; color: white; font-size: 0.8rem; padding: 6px 12px; flex-grow: 1; }
+
+        .item-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border); }
+        .no-results { text-align: center; color: var(--text-light); padding: 40px 20px; }
+        #print-preview { display: none; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Gerenciador Nuvem de Planos de Aula</h1>
+        <p>Sincronização Direta com Google Drive via Apps Script • Grupo 3 (G3)</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2 id="form-title">Criar Plano de Aula</h2>
+            <div id="loadingForm" class="loading-notice">Enviando dados para o Google Drive...</div>
+            <form id="planoForm">
+                <input type="hidden" id="planoId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="grupo">Turma / Grupo</label>
+                        <input type="text" id="grupo" value="G3" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="trimestre">Trimestre</label>
+                        <select id="trimestre">
+                            <option value="I">I Trimestre</option>
+                            <option value="II">II Trimestre</option>
+                            <option value="III">III Trimestre</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="data">Data / Período</label>
+                        <input type="text" id="data" placeholder="Ex: 17/02/26" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tema">Tema da Aula</label>
+                        <input type="text" id="tema" placeholder="Ex: Descoberta Sonora" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="direitos">Direitos de Aprendizagem</label>
+                    <textarea id="direitos">Conviver – Brincar – Explorar – Expressar – Conhecer-se</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="campos">Campos de Experiência</label>
+                    <input type="text" id="campos" value="TRAÇOS, SONS, CORES E FORMAS">
+                </div>
+
+                <div class="form-group">
+                    <label for="conteudos">Eixos Temáticos / Conteúdos</label>
+                    <textarea id="conteudos" placeholder="Ex: Descoberta Sonora..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="objetivos">Objetivos de Aprendizagem</label>
+                    <textarea id="objetivos" placeholder="Descreva os objetivos..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="habilidades">Habilidades / BNCC</label>
+                    <textarea id="habilities" placeholder="Ex: (EI02TS01)"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="momento">Momento / Desenvolvimento Pedagógico</label>
+                    <textarea id="momento" style="min-height: 140px;" placeholder="Passo a passo da aula..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="expectativas">Expectativas de Aprendizagem</label>
+                    <textarea id="expectativas" placeholder="O que se espera que desenvolvam..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="recursos">Recursos Didáticos</label>
+                    <textarea id="recursos" placeholder="Materiais necessários..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar no Google Drive</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Planos na Nuvem (Drive)</h2>
+            <div id="loadingList" class="loading-notice" style="display: block;">Carregando planos salvos no Google Drive...</div>
+            
+            <div class="filter-panel">
+                <h3>🔍 Filtros de Busca</h3>
+                <div class="filter-grid">
+                    <div>
+                        <label for="filtroTurma">Turma</label>
+                        <input type="text" id="filtroTurma" placeholder="Filtrar..." oninput="renderizarLista()">
+                    </div>
+                    <div>
+                        <label for="filtroData">Data</label>
+                        <input type="text" id="filtroData" placeholder="Filtrar..." oninput="renderizarLista()">
+                    </div>
+                    <div>
+                        <label for="filtroTema">Tema</label>
+                        <input type="text" id="filtroTema" placeholder="Filtrar..." oninput="renderizarLista()">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="lista-planos" id="listaPlanos"></div>
+        </div>
+    </div>
+
+    <div id="print-preview"></div>
+
+    <script>
+        // URL DA SUA API DO GOOGLE APPS SCRIPT
+        const API_URL = "https://script.google.com/macros/s/AKfycbzaoUIz550HwUR05AxrCZKw3WJ6a559nlsJNW9ScLeRW0WiCFNao5yGzrUEMohr1-k/exec";
+
+        let planos = [];
+
+        // Carrega os dados vindos da nuvem ao iniciar a página
+        async function buscarPlanosDaNuvem() {
+            document.getElementById('loadingList').style.display = 'block';
+            try {
+                const response = await fetch(API_URL);
+                planos = await response.json();
+                renderizarLista();
+            } catch (error) {
+                alert("Erro ao conectar com o Google Drive. Verifique se configurou a URL do Apps Script corretamente.");
+            } finally {
+                document.getElementById('loadingList').style.display = 'none';
+            }
+        }
+
+        // Envia novo plano ou atualização para a nuvem
+        document.getElementById('planoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            document.getElementById('loadingForm').style.display = 'block';
+            
+            const id = document.getElementById('planoId').value;
+            const planoObjeto = {
+                id: id ? parseInt(id) : Date.now(),
+                grupo: document.getElementById('grupo').value,
+                trimestre: document.getElementById('trimestre').value,
+                data: document.getElementById('data').value,
+                tema: document.getElementById('tema').value,
+                direitos: document.getElementById('direitos').value,
+                campos: document.getElementById('campos').value,
+                conteudos: document.getElementById('conteudos').value,
+                objetivos: document.getElementById('objetivos').value,
+                habilidades: document.getElementById('habilities').value,
+                momento: document.getElementById('momento').value,
+                expectativas: document.getElementById('expectativas').value,
+                recursos: document.getElementById('recursos').value,
+            };
+
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Permite o envio silencioso entre domínios locais e Google
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: "salvar", plano: planoObjeto })
+                });
+
+                // Como 'no-cors' não traz resposta legível, assumimos sucesso se não disparar erro
+                alert("Plano enviado/atualizado com sucesso no seu Google Drive!");
+                
+                // Reseta formulário
+                document.getElementById('planoForm').reset();
+                document.getElementById('planoId').value = '';
+                document.getElementById('grupo').value = 'G3';
+                document.getElementById('direitos').value = 'Conviver – Brincar – Explorar – Expressar – Conhecer-se';
+                document.getElementById('campos').value = 'TRAÇOS, SONS, CORES E FORMAS';
+                document.getElementById('form-title').innerText = "Criar Plano de Aula";
+                document.getElementById('btnSalvar').innerText = "Salvar no Google Drive";
+
+                // Força atualização da lista buscando os novos dados do Drive
+                setTimeout(buscarPlanosDaNuvem, 1500);
+            } catch (err) {
+                alert("Erro ao salvar dados.");
+            } finally {
+                document.getElementById('loadingForm').style.display = 'none';
+            }
+        });
+
+        function renderizarLista() {
+            const lista = document.getElementById('listaPlanos');
+            const buscaTurma = document.getElementById('filtroTurma').value.toLowerCase();
+            const buscaData = document.getElementById('filtroData').value.toLowerCase();
+            const buscaTema = document.getElementById('filtroTema').value.toLowerCase();
+            lista.innerHTML = '';
+
+            const filtrados = planos.filter(p => {
+                return p.grupo.toLowerCase().includes(buscaTurma) && 
+                       p.data.toLowerCase().includes(buscaData) && 
+                       p.tema.toLowerCase().includes(buscaTema);
+            });
+
+            if (filtrados.length === 0) {
+                lista.innerHTML = '<div class="no-results">Nenhum plano encontrado no Drive.</div>';
+                return;
+            }
+
+            filtrados.forEach(p => {
+                const box = document.createElement('div');
+                box.className = 'plano-item';
+                box.innerHTML = `
+                    <div class="plano-header">
+                        <div class="plano-title">${p.tema}</div>
+                        <div class="plano-meta"><strong>Data:</strong> ${p.data}</div>
+                    </div>
+                    <div class="plano-meta" style="margin-bottom:12px;">
+                        <strong>Turma:</strong> ${p.grupo} | <strong>Trimestre:</strong> ${p.trimestre}
+                    </div>
+                    <div class="plano-section"><strong>Conteúdos:</strong> <p>${p.conteudos}</p></div>
+                    <div class="plano-section"><strong>Habilidades BNCC:</strong> <p>${p.habilidades || ''}</p></div>
+                    <div class="plano-section"><strong>Desenvolvimento:</strong> <p>${p.momento}</p></div>
+                    
+                    <div class="export-panel">
+                        <div class="export-label">Exportar arquivo:</div>
+                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'html')">HTML</button>
+                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'txt')">TXT</button>
+                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'json')">JSON</button>
+                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'doc')">WORD</button>
+                        <button class="btn btn-export" onclick="exportarUnico(${p.id}, 'pdf')">PDF</button>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-danger" onclick="deletarPlano(${p.id})">Excluir do Drive</button>
+                        <button class="btn btn-edit" onclick="carregarEdicao(${p.id})">Editar Plano</button>
+                    </div>
+                `;
+                lista.appendChild(box);
+            });
+        }
+
+        function carregarEdicao(id) {
+            const p = planos.find(item => item.id === id);
+            if (!p) return;
+
+            document.getElementById('planoId').value = p.id;
+            document.getElementById('grupo').value = p.grupo;
+            document.getElementById('trimestre').value = p.trimestre;
+            document.getElementById('data').value = p.data;
+            document.getElementById('tema').value = p.tema;
+            document.getElementById('direitos').value = p.direitos;
+            document.getElementById('campos').value = p.campos;
+            document.getElementById('conteudos').value = p.conteudos;
+            document.getElementById('objetivos').value = p.objetivos;
+            document.getElementById('habilities').value = p.habilidades || '';
+            document.getElementById('momento').value = p.momento;
+            document.getElementById('expectativas').value = p.expectativas;
+            document.getElementById('recursos').value = p.recursos;
+
+            document.getElementById('form-title').innerText = "Editando: " + p.tema;
+            document.getElementById('btnSalvar').innerText = "Atualizar no Google Drive";
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        async function deletarPlano(id) {
+            if (confirm('Deseja deletar definitivamente este plano do seu Google Drive?')) {
+                document.getElementById('loadingList').style.display = 'block';
+                try {
+                    await fetch(API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: "deletar", id: id })
+                    });
+                    setTimeout(buscarPlanosDaNuvem, 1200);
+                } catch (err) {
+                    alert("Erro ao deletar.");
+                }
+            }
+        }
+
+        // Funções de formatação para Downloads Locais (Mantidas para conveniência)
+        function gerarDocumentoEstruturado(p) {
+            return `<div style="font-family: Arial; padding: 30px; line-height: 1.6;"><h1 style="color: #4f46e5;">PLANO DE AULA: ${p.tema}</h1><p><strong>Grupo:</strong> ${p.grupo} | <strong>Data:</strong> ${p.data}</p><hr><p><strong>Desenvolvimento:</strong><br>${p.momento.replace(/\n/g, '<br>')}</p></div>`;
+        }
+
+        function exportarUnico(id, formato) {
+            const p = planos.find(item => item.id === id);
+            if (!p) return;
+            const nomeArquivo = `Plano_${p.tema.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+            if (formato === 'json') {
+                acionarDownload(new Blob([JSON.stringify(p, null, 2)], {type: 'application/json'}), `${nomeArquivo}.json`);
+            } else if (formato === 'txt') {
+                acionarDownload(new Blob([`PLANO: ${p.tema}\n\nDesenvolvimento:\n${p.momento}`], {type: 'text/plain'}), `${nomeArquivo}.txt`);
+            } else if (formato === 'html') {
+                acionarDownload(new Blob([gerarDocumentoEstruturado(p)], {type: 'text/html'}), `${nomeArquivo}.html`);
+            } else if (formato === 'doc') {
+                acionarDownload(new Blob([gerarDocumentoEstruturado(p)], {type: 'application/msword'}), `${nomeArquivo}.doc`);
+            } else if (formato === 'pdf') {
+                const preview = document.getElementById('print-preview');
+                preview.style.display = 'block'; preview.innerHTML = gerarDocumentoEstruturado(p);
+                html2pdf().set({ margin: 15, filename: `${nomeArquivo}.pdf` }).from(preview).save().then(() => { preview.style.display = 'none'; });
+            }
+        }
+
+        function acionarDownload(blob, nome) {
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; a.click();
+        }
+
+        // Inicialização automática
+        buscarPlanosDaNuvem();
+    </script>
+</body>
+</html>
